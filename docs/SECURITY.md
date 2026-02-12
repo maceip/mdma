@@ -1,41 +1,25 @@
 # Security
 
-## Threat Model
+`merge-engine` is designed to be a secure, local-only utility for source code management.
 
-TinyClaw is designed as a **single-user, self-hosted** assistant.  The primary
-security boundary is the host machine.  There is no multi-tenancy.
+## 1. Local Execution
+The engine never makes network requests. It does not use external LLM APIs, telemetry, or remote crash reporting. All processing happens on the user's machine, ensuring that proprietary source code never leaves the local environment.
 
-### Trust boundaries
+## 2. No Secret Handling
+`merge-engine` does not need access to API keys, passwords, or SSH keys. It operates solely on the file contents passed to it by Git or the user.
 
-| Boundary | Trust level |
-|----------|------------|
-| Local filesystem (`.tinyclaw/`) | Fully trusted |
-| `localhost:18787` (LiteRT-LM) | Trusted — same machine, no auth |
-| `localhost:8787` (HTTP API) | Semi-trusted — CORS is permissive |
-| Discord / Telegram gateways | Untrusted network; auth via bot tokens |
-| Freehold relay | Untrusted network relay; optional |
+## 3. Sandboxing (Recommended)
+While the engine is written in memory-safe Rust, it parses untrusted source code from different branches. We recommend:
+- Running `merge-engine` with the same privileges as your Git client.
+- Using standard OS-level permissions to restrict its access to only the repository directory.
 
-### Secrets
+## 4. Input Validation
+The engine uses Tree-sitter for parsing, which is robust against malformed or malicious source files. If a file fails to parse, the engine safely falls back to line-based merging or emits conflict markers rather than crashing.
 
-- **Bot tokens** are stored in `.tinyclaw/settings.json`.  This file should
-  have mode `0600`.  It is `.gitignore`d.
-- **No API keys** are needed for inference — LiteRT-LM runs locally.
-- The `.tinyclaw/` directory should never be committed to version control.
+## 5. Dependency Management
+We strictly limit our dependencies to well-vetted Rust crates:
+- `tree-sitter`: For structural analysis.
+- `similar`: For textual diffing.
+- `thiserror`: For safe error handling.
 
-### Attack surface
-
-- **HTTP API.**  CORS is set to allow any origin so the bookmarklet works from
-  any page.  If the host is network-reachable, anyone on the LAN can call
-  `/v1/chat`.  Bind to `127.0.0.1` (current default) to limit exposure.
-- **Queue injection.**  Any process with filesystem write access to
-  `.tinyclaw/queue/incoming/` can inject messages.  This is by design for
-  extensibility but means filesystem permissions are the auth layer.
-- **LiteRT-LM subprocess.**  Spawned with the same privileges as the TinyClaw
-  process.  No sandboxing beyond the OS process model.
-
-## Recommendations
-
-1. Run TinyClaw under a dedicated unprivileged user.
-2. Ensure `.tinyclaw/settings.json` is `0600`.
-3. Do not expose port 8787 to the public internet without an auth proxy.
-4. Keep bot tokens out of version control.
+We use automated CI (GitHub Actions) to scan for vulnerabilities in dependencies.

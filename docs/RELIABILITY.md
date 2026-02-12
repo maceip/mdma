@@ -1,53 +1,25 @@
-# Reliability
+# Reliability & Robustness
 
-## Queue Guarantees
+`merge-engine` is designed to be a "fail-safe" tool. If it cannot guarantee a correct merge, it must not corrupt the source code.
 
-The file-based queue provides **at-least-once delivery**:
+## 1. Fallback Chain
+Reliability is achieved through a strict hierarchy of fallbacks:
+1. **Rule Failure:** If a DSL rule doesn't match perfectly, it's skipped.
+2. **Parse Failure:** If Tree-sitter cannot parse a file (e.g., due to syntax errors in a conflict), the structured merge stage is skipped.
+3. **Synthesis Failure:** If VSA or Search cannot find a candidate with a high enough confidence score, the engine defaults to standard Git conflict markers.
 
-1. `enqueue()` writes to a temp file then atomically renames into `incoming/`.
-   If the process crashes mid-write the temp file is orphaned but never
-   visible to the processor.
+## 2. Syntactic Validation
+Resolutions produced by the VSA and Search stages are optionally passed back through the parser to ensure they are at least syntactically valid before being presented to the user.
 
-2. `claim_next()` atomically renames the oldest file from `incoming/` to
-   `processing/`.  Only one processor can win the rename.
+## 3. Preservation of Intent
+A key reliability metric is whether the engine preserves the "intent" of both the Left and Right branches. Our fitness functions are biased towards:
+- Minimizing deleted tokens that were present in either parent but not the other.
+- Maximizing the preservation of syntactic blocks.
 
-3. On success, `complete()` writes the response to `outgoing/` and deletes
-   the processing file.
+## 4. Error Handling
+We use the `anyhow` and `thiserror` crates to ensure that errors (file I/O, parsing, timeouts) are caught and handled gracefully. A crash in the merge engine should never leave a repository in an inconsistent state.
 
-4. On failure, `retry()` renames the file back to `incoming/` so it will be
-   re-processed.
-
-5. If the process crashes while a file is in `processing/`, it stays there.
-   A future startup or operator can move it back to `incoming/` manually.
-
-## Crash Recovery
-
-| Scenario | Recovery |
-|----------|----------|
-| Crash before `claim_next` | Message stays in `incoming/`, picked up on restart |
-| Crash during inference | Message in `processing/`, needs manual move back |
-| Crash after `complete` | Response in `outgoing/`, channel will deliver on restart |
-| LiteRT-LM dies | `InferenceEngine` reports error, message retried |
-
-## Retry Policy
-
-- Queue processor retries immediately via `queue.retry()` on inference error.
-- Channels poll outgoing every 1 second.  If delivery fails the file stays
-  in `outgoing/` for the next poll cycle.
-- No exponential backoff currently — the 1-second poll interval is the
-  implicit retry rate.
-
-## Shutdown
-
-Graceful shutdown via `tokio::sync::broadcast`.  Every spawned task holds a
-receiver.  On Ctrl-C the orchestrator sends a single message; tasks drain
-current work and exit.  The Android `nativeStop()` JNI call triggers the same
-broadcast.
-
-## Known Gaps
-
-- No dead-letter queue.  Messages that permanently fail stay in `processing/`
-  until manually resolved.
-- No automatic recovery of `processing/` files on startup.
-- No health check endpoint that verifies LiteRT-LM is responsive (only
-  `/v1/status` which checks the HTTP server itself).
+## 5. Test Coverage
+- **Unit Tests:** Every module (`vsa`, `matcher`, `amalgamator`) has >80% test coverage.
+- **Property-based Testing:** We use `proptest` (planned) to ensure that the merge engine is stable across a wide range of synthetic conflict scenarios.
+- **Integration Tests:** The `ground_truth` suite ensures no regressions on known hard conflicts.

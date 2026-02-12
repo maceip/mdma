@@ -1,31 +1,39 @@
-# Quality Score
+# Quality & Benchmarking
 
-## Rubric
+We measure the quality of `merge-engine` across three primary metrics: **Accuracy**, **Recall**, and **Performance**.
 
-Quality is tracked across five dimensions.  Each is scored 1-5 where 3 means
-"acceptable for a solo-developer project" and 5 means "production-grade".
+## 1. Resolution Accuracy (Confidence)
+Every resolution produced by the engine is assigned a `Confidence` score:
+- **High:** Pattern matches or clean structured merge. The code is almost certainly correct.
+- **Medium:** VSA produced a candidate that is syntactically valid and has high similarity to both parents.
+- **Low:** Search-based resolution fallback. Requires human review.
 
-| Dimension | Current | Target | Notes |
-|-----------|---------|--------|-------|
-| **Correctness** | 4 | 5 | Queue atomicity is solid; edge cases around `processing/` recovery are open |
-| **Reliability** | 3 | 4 | No dead-letter queue, no automatic crash recovery of in-flight messages |
-| **Performance** | 3 | 3 | Bottleneck is LLM inference; queue overhead is negligible |
-| **Security** | 3 | 4 | Permissive CORS, no HTTP auth, secrets in plaintext JSON |
-| **Developer UX** | 4 | 5 | CLI is clean; docs are being built out; CI is green |
+## 2. Recall (Auto-Resolution Rate)
+This is the percentage of conflicts that the engine can resolve without human intervention. We benchmark this against the `tests/ground_truth.rs` suite, which contains real-world conflicts from large open-source repositories.
 
-## Metrics (future)
+| Project Type | diff3 (Git) | merge-engine (Target) |
+|--------------|-------------|-----------------------|
+| Rust / Cargo | 0% (Baseline)| 85%                   |
+| TypeScript   | 0% (Baseline)| 80%                   |
+| Python       | 0% (Baseline)| 90%                   |
 
-These are not instrumented yet but should be:
+## 3. Performance SLOs
+Merge resolution should be fast enough to be invisible in a developer's workflow.
 
-- **p99 message latency** — time from `enqueue` to `ack_outgoing`.
-- **Queue depth** — files in `incoming/` at any point.
-- **Inference errors/hour** — count of `queue.retry()` calls.
-- **Uptime** — percentage of time the heartbeat fires on schedule.
+| Metric | Target |
+|--------|--------|
+| Startup Time | < 10ms |
+| Conflict Resolution (Rule/Structured) | < 50ms |
+| Conflict Resolution (Search-based) | < 500ms |
+| Memory Usage | < 100MB |
 
-## SLOs (aspirational)
+## Benchmarking Suite
+We maintain a "ground truth" dataset in `tests/data/`. This includes:
+- **Base/Left/Right triplets:** The input to the merge.
+- **Expected Resolution:** The manually verified "correct" merge result.
+- **Metadata:** Why the conflict happened (e.g., "reordered imports").
 
-| SLO | Target |
-|-----|--------|
-| Message processed within 30 s of arrival | 95 % |
-| Zero messages permanently lost | 100 % |
-| Graceful shutdown completes within 5 s | 99 % |
+Run benchmarks with:
+```bash
+cargo test --test ground_truth -- --ignored
+```

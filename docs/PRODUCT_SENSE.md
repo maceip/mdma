@@ -1,33 +1,25 @@
 # Product Sense
 
-## Who is TinyClaw for?
+## Who is `merge-engine` for?
 
-**Primary user:** A technical individual who wants a private, always-on AI
-assistant reachable from any messaging app they already use — without sending
-their data to a cloud API.
+**Primary user:** Software engineers and DevOps teams who want to automate the resolution of git merge conflicts without relying on slow, non-deterministic, or privacy-invasive LLMs.
 
 **Jobs to be done:**
 
-1. Ask a question from my phone (Telegram/Discord) and get an answer from a
-   local model within seconds.
-2. Run the assistant 24/7 on a home server or phone and forget about it.
-3. Extend the assistant to new channels without rewriting the core.
-4. Keep full control — no API keys, no cloud billing, no vendor lock-in.
+1. **Reduce "Merge Hell":** Automatically resolve the 80-90% of conflicts that are syntactically trivial but line-conflicting.
+2. **Improve Productivity:** Spend less time manually clicking "Accept Left" or "Accept Right" in an IDE for repetitive conflicts like import reordering.
+3. **Safe Automation:** Confidently use the tool in CI/CD pipelines to auto-merge branches that would otherwise require manual intervention.
+4. **Local Privacy:** Resolve conflicts on proprietary codebases without sending data to third-party AI providers.
 
 ## Product Principles
 
-1. **Zero-config happy path.**  `tinyclaw setup` + `tinyclaw start` should
-   get a user from nothing to a working assistant in under two minutes.
-2. **One binary.**  The Rust build produces a single static binary for each
-   platform.  No runtime dependencies beyond LiteRT-LM.
-3. **Channels are disposable.**  Enable or disable any channel without
-   affecting the rest.  The queue decouples everything.
-4. **Quiet by default.**  The assistant only speaks when spoken to, except
-   for the opt-in heartbeat.
+1. **Safety is Paramount:** A false resolution is much worse than no resolution. We prefer falling back to conflict markers over producing broken code.
+2. **Deterministic by Default:** Rule-based and structured merge strategies are deterministic, ensuring consistent behavior across different environments.
+3. **Seamless Integration:** Works as a drop-in replacement for standard git merge drivers.
+4. **Performance as a Feature:** The tool must be fast enough to run as a git hook without noticeable delay.
 
 ## Non-goals
 
-- Multi-user / multi-tenant operation.
-- Cloud-hosted SaaS offering.
-- GUI configuration (CLI and settings.json are the interface).
-- Competing with full-featured chatbot frameworks (Rasa, Botpress, etc.).
+- Replacing human code review for semantic conflicts (e.g., two people changing the logic of the same algorithm in incompatible ways).
+- Being a full-featured IDE (we focus on the merge engine, not the UI).
+- Competing with general-purpose AI assistants (we are a specialized tool for structural merging).
