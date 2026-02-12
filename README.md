@@ -1,6 +1,9 @@
+<img height="256" alt="image" src="https://github.com/user-attachments/assets/f6960957-4d9a-4f5d-acb6-4dd23df970d2" />
+
+
 # merge-engine
 
-A non-LLM merge conflict resolver that uses program analysis techniques from
+a merge conflict resolver that uses program analysis techniques from
 recent academic research to automatically resolve git merge conflicts.
 
 ## How it works
